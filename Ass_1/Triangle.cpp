@@ -7,6 +7,7 @@
 #include <array>
 #include <stdexcept>
 
+// 初始化三角形，全部置为0
 Triangle::Triangle()
 {
     v[0] << 0, 0, 0;

@@ -134,31 +134,38 @@ auto to_vec4(const Eigen::Vector3f& v3, float w = 1.0f)
 
 void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffer, rst::Primitive type)
 {
+    // 暂时只实现了三角形的图元装配
     if (type != rst::Primitive::Triangle)
     {
         throw std::runtime_error("Drawing primitives other than triangle is not implemented yet!");
     }
+    // 首先buf,ind两个量分别将之前加载到光栅化器中的三角形坐标和索引取出。
     auto& buf = pos_buf[pos_buffer.pos_id];
     auto& ind = ind_buf[ind_buffer.ind_id];
-
+    
+    // f1，f2两个值把z从[-1,1]，变换到了[near,far]
     float f1 = (100 - 0.1) / 2.0;
     float f2 = (100 + 0.1) / 2.0;
 
+    // 构建mvp矩阵
     Eigen::Matrix4f mvp = projection * view * model;
     for (auto& i : ind)
     {
         Triangle t;
 
+        // 将mvp变换矩阵分别乘以三角形三个顶点的坐标
         Eigen::Vector4f v[] = {
                 mvp * to_vec4(buf[i[0]], 1.0f),
                 mvp * to_vec4(buf[i[1]], 1.0f),
                 mvp * to_vec4(buf[i[2]], 1.0f)
         };
 
+        // 三角形三个顶点的坐标分别除以w分量
         for (auto& vec : v) {
             vec /= vec.w();
         }
 
+        // 视口变换，将x方向从[-1,1]变为[0,width],y方向从[-1,1]变到[0,height]，z方向由[-1,1]变到[0,100]左右
         for (auto & vert : v)
         {
             vert.x() = 0.5*width*(vert.x()+1.0);
@@ -166,6 +173,7 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
             vert.z() = vert.z() * f1 + f2;
         }
 
+        // 三角形三个顶点与三角形做对应
         for (int i = 0; i < 3; ++i)
         {
             t.setVertex(i, v[i].head<3>());
@@ -173,16 +181,19 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
             t.setVertex(i, v[i].head<3>());
         }
 
+        // setColor函数给三个点设置颜色（其实吧这个实验里应该无所谓，毕竟一个像素点的颜色设了最终也看不出来）
         t.setColor(0, 255.0,  0.0,  0.0);
         t.setColor(1, 0.0  ,255.0,  0.0);
         t.setColor(2, 0.0  ,  0.0,255.0);
 
+        // 画线
         rasterize_wireframe(t);
     }
 }
 
 void rst::rasterizer::rasterize_wireframe(const Triangle& t)
 {
+    // 就三个点循环画线呗
     draw_line(t.c(), t.a());
     draw_line(t.c(), t.b());
     draw_line(t.b(), t.a());
@@ -203,6 +214,8 @@ void rst::rasterizer::set_projection(const Eigen::Matrix4f& p)
     projection = p;
 }
 
+// 将framebuf（即屏幕的像素数组，本项目中定义为700x700），用vector3f{0,0,0}来填充，该RGB三通道信息对应为纯黑色。
+// depth_buf（深度数组，代表每个点的深度信息，将在光栅化和渲染部分用到，本次实验可忽略）用infinity()（无穷大）来填充。
 void rst::rasterizer::clear(rst::Buffers buff)
 {
     if ((buff & rst::Buffers::Color) == rst::Buffers::Color)

@@ -6,19 +6,22 @@
 
 constexpr double MY_PI = 3.1415926;
 
+// 视图变换
 Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
 {
     Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
 
     Eigen::Matrix4f translate;
-    translate << 1, 0, 0, -eye_pos[0], 0, 1, 0, -eye_pos[1], 0, 0, 1,
-        -eye_pos[2], 0, 0, 0, 1;
+    translate << 1, 0, 0, -eye_pos[0], 
+        0, 1, 0, -eye_pos[1], 
+        0, 0, 1,-eye_pos[2], 
+        0, 0, 0, 1;
 
     view = translate * view;
 
     return view;
 }
-
+// 输入一个旋转角度，进行模型变换
 Eigen::Matrix4f get_model_matrix(float rotation_angle)
 {
     Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
@@ -35,13 +38,11 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     return model;
 }
 
+// 初始化一个单位矩阵
 Eigen::Matrix4f init_model_matrix()
 {
     Eigen::Matrix4f init_model = Eigen::Matrix4f::Identity();
 
-    // TODO: Implement this function
-    // Create the model matrix for rotating the triangle around the Z axis.
-    // Then return it.
     init_model<< 1, 0, 0, 0,
         0, 1, 0, 0,
         0, 0, 1, 0,
@@ -50,50 +51,41 @@ Eigen::Matrix4f init_model_matrix()
     return init_model;
 }
 
+// 透视投影变换
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
                                       float zNear, float zFar)
 {
-    // Students will implement this function
-
     Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
 
-    // TODO: Implement this function
-    // Create the projection matrix for the given parameters.
-    // Then return it.
-    Eigen::Matrix4f orthMat = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f persMat = Eigen::Matrix4f::Identity();
-
-
-    float fovDegree = eye_fov / 180.0f * MY_PI;
-    float n = -zNear;
-    float f = -zFar;
-    float t = tan(fovDegree / 2) * abs(n);
-    float r = t * aspect_ratio;
+    float n = -zNear, f = -zFar;
+    float t = tan((eye_fov / 180.0f * MY_PI)/ 2) * abs(n);
     float b = -t;
+    float r = t * aspect_ratio;
     float l = -r;
 
-    Eigen::Matrix4f pers2Orth = Eigen::Matrix4f::Identity();
-    pers2Orth << n, 0, 0, 0,
+    Eigen::Matrix4f orth_mat = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f pers_mat = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f p2o_mat = Eigen::Matrix4f::Identity();
+    p2o_mat << n, 0, 0, 0,
         0, n, 0, 0,
         0, 0, n + f, -n * f,
         0, 0, 1, 0;
 
-    Eigen::Matrix4f transOfOrth = Eigen::Matrix4f::Identity();
-    transOfOrth << 1, 0, 0, -(l + r) / 2,
+    Eigen::Matrix4f o_transl = Eigen::Matrix4f::Identity();
+    o_transl << 1, 0, 0, -(l + r) / 2,
         0, 1, 0, -(b + t) / 2,
         0, 0, 1, -(n + f) / 2,
         0, 0, 0, 1;
 
-    Eigen::Matrix4f scalOfOrth = Eigen::Matrix4f::Identity();
-    scalOfOrth << 2 / (r - l), 0, 0, 0,
+    Eigen::Matrix4f o_linear = Eigen::Matrix4f::Identity();
+    o_linear << 2 / (r - l), 0, 0, 0,
         0, 2 / (t - b), 0, 0,
         0, 0, 2 / (n - f), 0,
         0, 0, 0, 1;
 
-    orthMat = scalOfOrth * transOfOrth;
-    persMat = orthMat * pers2Orth;
-    projection = persMat;
-
+    //orth_mat = o_linear * o_transl;
+    //pers_mat = o_linear * o_transl * p2o_mat;
+    projection = o_linear * o_transl * p2o_mat;
 
     return projection;
 }
@@ -102,29 +94,26 @@ Eigen::Matrix4f get_rotation(Eigen::Vector3f axis, float angle) {
 
     // std::cout << axis << std::endl;
 
-    Eigen::Matrix4f ans = Eigen::Matrix4f::Identity();
-    Eigen::Matrix3f one;
-    one << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+    Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
+    Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
+    //one << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
     float alpha = angle / 180 * MY_PI;
-    float cs = cos(alpha), sn = sin(alpha);
-    float x = axis[0], y = axis[1], z = axis[2];
-    Eigen::Matrix3f cross;
-    cross << 0, -z, y, z, 0, -x, -y, x, 0;
+    float cos_alpha = cos(alpha), sin_alpha = sin(alpha);
+    float n_x = axis[0], n_y = axis[1], n_z = axis[2];
+    Eigen::Matrix3f N;
+    N << 0, -n_z, n_y, 
+        n_z, 0, -n_x, 
+        -n_y, n_x, 0;
 
-    Eigen::Matrix3f tmp = cs * one + (1 - cs) * axis * axis.transpose() + sn * cross;
+    Eigen::Matrix3f tr = cos_alpha * I + (1 - cos_alpha) * axis * axis.transpose() + sin_alpha * N;
 
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (i < 3 && j < 3)
-                ans(i, j) = tmp(i, j);
-            else if (i == 3 && j == 3)
-                ans(i, j) = 1;
-            else
-                ans(i, j) = 0;
-        }
-    }
-    return ans;
+    // TODO: 可以写一个Matrix3f to 4f 的函数
+    model << tr(0, 0), tr(0, 1), tr(0, 2), 0,
+        tr(1, 0), tr(1, 1), tr(1, 2), 0,
+        tr(2, 0), tr(2, 1), tr(2, 2), 0,
+        0, 0, 0, 1;
+    return model;
 }
 
 int main(int argc, const char** argv)
@@ -183,6 +172,8 @@ int main(int argc, const char** argv)
 
     r.set_model(init_model_matrix());
     while (key != 27) {
+        
+        // 清除整个显示屏幕
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
 
         r.set_view(get_view_matrix(eye_pos));

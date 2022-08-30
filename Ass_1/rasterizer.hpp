@@ -75,7 +75,7 @@ class rasterizer
     Eigen::Matrix4f view;
     Eigen::Matrix4f projection;
 
-
+    // declaring map containor to store the position and index matrix
     std::map<int, std::vector<Eigen::Vector3f>> pos_buf;
     std::map<int, std::vector<Eigen::Vector3i>> ind_buf;
 
